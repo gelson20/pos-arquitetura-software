@@ -1,24 +1,27 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List
+
+from src.database import get_db
 from src.modules.events.schemas.event_schema import EventCreate, EventResponse
+from src.modules.events.repository.event_repository import EventRepository
 
 router = APIRouter()
 
-# Simulando um banco de dados em memória por enquanto
-fake_db = []
-
 
 @router.post("/", response_model=EventResponse)
-def create_event(event_data: EventCreate):
-    # Aqui, no futuro, chamaremos o "Service"
-    new_event = event_data.model_dump()
-    from uuid import uuid4
-    new_event["id"] = uuid4()
-    new_event["is_published"] = False
+def create_event(event_data: EventCreate, db: Session = Depends(get_db)):
+    # 1. Instanciamos o repositório com a sessão do banco
+    repository = EventRepository(db)
 
-    fake_db.append(new_event)
+    # 2. Chamamos o método de criação
+    # .model_dump() transforma o schema do Pydantic em um dicionário Python
+    new_event = repository.create(event_data.model_dump())
+
     return new_event
 
 
-@router.get("/")
-def list_events():
-    return fake_db
+@router.get("/", response_model=List[EventResponse])
+def list_events(db: Session = Depends(get_db)):
+    repository = EventRepository(db)
+    return repository.get_all()
